@@ -1,7 +1,27 @@
 sudo: false
+dist: focal
 language: node_js
 node_js:
+  - "24"
   - "0.12"
   - "4"
   - "6"
   - "7"
+script:
+  - |
+    NODE_MAJOR=$(node -e 'console.log(process.versions.node.split(".")[0])')
+    if [ "$NODE_MAJOR" -ge 22 ]; then
+      npm test
+    else
+      # These test files need a modern runtime and run on the Node 24 leg only:
+      # redos.js is ESM (import / node:test); cve.js and ghsa-rgw5-rvv9-x895.js use
+      # numeric separators, template literals, async arrows and trailing call commas;
+      # unbound-recursion.js uses block-scoped declarations and the Node >= 16
+      # `performance` global.
+      SKIP='redos|cve|ghsa-rgw5-rvv9-x895|unbound-recursion'
+      # Node 0.12 lacks String.prototype.repeat, which these test files call.
+      if [ "$NODE_MAJOR" = "0" ]; then
+        SKIP="$SKIP|ghsa-6j4f-fj2g-mc7p|ghsa-qhr7-859c-m2p7|sequence"
+      fi
+      ./node_modules/.bin/tape $(ls test/*.js | grep -v -E "/($SKIP)\.js$")
+    fi
